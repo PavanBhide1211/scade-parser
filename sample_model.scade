@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  sample_model.scade
+  Sample SCADE model for testing the parser.
+  Illustrates the three element patterns the parser handles:
+    - Input / Output as flat attributes
+    - Input / Output with Variable children
+    - Sensor (calibration parameter)
+    - Const / Constant (calibration parameter)
+-->
+<File>
+
+  <Package Name="VehicleControl">
+
+    <!-- Operator: BrakeController (inputs/outputs as flat attributes) -->
+    <Operator Name="BrakeController" IsNode="true">
+      <Interface>
+        <Input  Name="BrakePedalPos"    TypeRef="float32" Comment="Brake pedal position 0-100%"/>
+        <Input  Name="VehicleSpeed_kph" TypeRef="float32" Comment="Current vehicle speed in kph"/>
+        <Input  Name="ABS_Active"       TypeRef="bool"    Comment="ABS system active flag"/>
+        <Output Name="BrakePressure_bar" TypeRef="float32" Comment="Commanded brake pressure"/>
+        <Output Name="BrakeFault"        TypeRef="bool"    Comment="Brake system fault flag"/>
+      </Interface>
+    </Operator>
+
+    <!-- Operator: ThrottleController (inputs/outputs via Variable children) -->
+    <Operator Name="ThrottleController" IsNode="true">
+      <Interface>
+        <Input>
+          <Variable Name="AccelPedalPos"   TypeRef="float32" Comment="Accelerator pedal 0-100%"/>
+          <Variable Name="EngineSpeed_rpm" TypeRef="int32"   Comment="Engine speed in RPM"/>
+        </Input>
+        <Output>
+          <Variable Name="ThrottleCmd_pct" TypeRef="float32" Comment="Throttle command 0-100%"/>
+          <Variable Name="EngFault"        TypeRef="bool"    Comment="Engine fault flag"/>
+        </Output>
+      </Interface>
+    </Operator>
+
+    <!-- Sensor calibration parameters -->
+    <Sensor Name="CAL_MaxBrakePressure"  TypeRef="float32" Comment="Maximum allowable brake pressure [bar]">
+      <Default>250.0</Default>
+    </Sensor>
+    <Sensor Name="CAL_MinVehicleSpeed"   TypeRef="float32" Comment="Minimum speed threshold for ABS [kph]">
+      <Default>5.0</Default>
+    </Sensor>
+    <Sensor Name="CAL_BrakeGain"         TypeRef="float32" Comment="Brake pressure gain factor"/>
+
+    <!-- Const calibration parameters -->
+    <Const Name="K_MAX_ENGINE_RPM"   TypeRef="int32"   Value="8000" Comment="Engine redline [RPM]"/>
+    <Const Name="K_IDLE_RPM"         TypeRef="int32"   Value="700"  Comment="Target idle speed [RPM]"/>
+    <Const Name="K_THROTTLE_DEADBAND" TypeRef="float32" Comment="Pedal deadband before command issued">
+      <Value>2.5</Value>
+    </Const>
+
+  </Package>
+
+  <Package Name="Diagnostics">
+
+    <Operator Name="FaultMonitor" IsNode="true">
+      <Interface>
+        <!-- Mixed pattern: flat Input, Variable-child Output -->
+        <Input Name="BrakeFault_in" TypeRef="bool" Comment="Brake fault signal from BrakeController"/>
+        <Input Name="EngFault_in"   TypeRef="bool" Comment="Engine fault from ThrottleController"/>
+        <Output>
+          <Variable Name="MIL_On"         TypeRef="bool" Comment="Malfunction indicator lamp"/>
+          <Variable Name="FaultCode"      TypeRef="int32" Comment="Active fault code (0 = none)"/>
+        </Output>
+      </Interface>
+    </Operator>
+
+    <Sensor Name="CAL_FaultDebounce_ms" TypeRef="int32" Comment="Debounce time before fault latches [ms]">
+      <Default>200</Default>
+    </Sensor>
+    <Constant Name="K_NO_FAULT" TypeRef="int32" Comment="Sentinel value meaning no active fault">
+      <Value>0</Value>
+    </Constant>
+
+  </Package>
+
+</File>

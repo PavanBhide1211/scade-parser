@@ -1,0 +1,9 @@
+# SCADE Parser – Python dependencies
+# Install with:  pip install -r requirements.txt
+
+# Excel file generation
+openpyxl>=3.1.0
+
+# XXE-safe XML parsing (strongly recommended for security)
+# Falls back to stdlib xml.etree with entity rejection if not installed
+defusedxml>=0.7.1
