@@ -1,0 +1,80 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name            = "scade-parser"
+version         = "1.0.0"
+description     = "Parse SCADE Suite model files and extract signals and calibration parameters to Excel."
+readme          = "README.md"
+license         = { file = "LICENSE" }
+authors         = [{ name = "Pavan Bhide", email = "bhidepavan@gmail.com" }]
+requires-python = ">=3.10"
+
+keywords = [
+    "SCADE", "model-based development", "MBD", "signal extraction",
+    "embedded", "safety-critical", "parser", "Excel"
+]
+
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Utilities",
+]
+
+dependencies = [
+    "openpyxl>=3.1.0",
+    "defusedxml>=0.7.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+]
+
+[project.scripts]
+scade-parser = "scade_parser:main"
+
+[project.urls]
+Homepage      = "https://github.com/pavanbhide/scade-parser"
+Repository    = "https://github.com/pavanbhide/scade-parser"
+Issues        = "https://github.com/pavanbhide/scade-parser/issues"
+Changelog     = "https://github.com/pavanbhide/scade-parser/blob/main/CHANGELOG.md"
+
+[tool.setuptools]
+py-modules = ["scade_parser"]
+
+# ── Ruff linter configuration ─────────────────────────────────────────────────
+[tool.ruff]
+line-length    = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "S",   # flake8-bandit (security)
+    "UP",  # pyupgrade
+]
+ignore = [
+    "S101",  # assert statements (acceptable in tests)
+    "B006",  # mutable default args (not present in this codebase)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"scade_parser.py" = [
+    "S603",  # subprocess — not used, but suppressed for future-proofing
+]

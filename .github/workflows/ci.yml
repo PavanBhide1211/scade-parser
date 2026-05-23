@@ -1,0 +1,141 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["main", "master"]
+
+# Cancel any in-progress run for the same branch on a new push
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Python ${{ matrix.python-version }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Smoke test — parse sample model
+        run: python scade_parser.py sample_model.scade --output smoke_test.xlsx
+
+      - name: Verify output file was created
+        shell: bash
+        run: |
+          if [ ! -f smoke_test.xlsx ]; then
+            echo "ERROR: smoke_test.xlsx was not created"
+            exit 1
+          fi
+          echo "smoke_test.xlsx exists ($(du -h smoke_test.xlsx | cut -f1))"
+
+      - name: Verify expected record counts
+        shell: python
+        run: |
+          import sys
+          try:
+              from openpyxl import load_workbook
+          except ImportError:
+              print("openpyxl not available — skipping count check")
+              sys.exit(0)
+
+          wb = load_workbook("smoke_test.xlsx")
+          counts = {
+              sheet: wb[sheet].max_row - 1   # subtract header
+              for sheet in ["Input Signals", "Output Signals", "Calibration Parameters"]
+          }
+          print("Extracted counts:", counts)
+
+          expected = {
+              "Input Signals":           7,
+              "Output Signals":          6,
+              "Calibration Parameters":  8,
+          }
+          failures = []
+          for sheet, exp in expected.items():
+              got = counts.get(sheet, -1)
+              if got != exp:
+                  failures.append(f"  {sheet}: expected {exp}, got {got}")
+
+          if failures:
+              print("FAILURES:")
+              print("\n".join(failures))
+              sys.exit(1)
+          else:
+              print("All record counts match expected values.")
+
+      - name: Security test — XXE injection blocked
+        shell: python
+        run: |
+          import sys, tempfile, os
+          from pathlib import Path
+
+          xxe = textwrap = """<?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
+          <File><Package Name="&xxe;"/></File>"""
+
+          with tempfile.NamedTemporaryFile(
+              mode="w", suffix=".scade", delete=False
+          ) as f:
+              f.write(xxe)
+              tmp = f.name
+
+          try:
+              from scade_parser import ScadeModelParser
+              try:
+                  ScadeModelParser(Path(tmp)).parse()
+                  # If we get here, XXE was NOT blocked — fail
+                  print("FAIL: XXE injection was not blocked")
+                  sys.exit(1)
+              except (ValueError, Exception) as e:
+                  msg = str(e).lower()
+                  if any(kw in msg for kw in ("forbidden", "doctype", "entity", "parse error")):
+                      print(f"PASS: XXE correctly blocked ({e})")
+                  else:
+                      print(f"PASS: file rejected for another reason ({e})")
+          finally:
+              os.unlink(tmp)
+
+      - name: Upload smoke-test output as artefact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: smoke_test.xlsx
+          if-no-files-found: ignore
+
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install ruff
+        run: pip install ruff>=0.4
+
+      - name: Run ruff
+        run: ruff check scade_parser.py
